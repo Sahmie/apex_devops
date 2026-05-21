@@ -1,0 +1,50 @@
+name: Deploy to Dev Sandbox
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+
+      - name: Authenticate Dev Sandbox
+        run: |
+          echo "${{ secrets.DEVHUB_SFDX_AUTH_URL }}" > dev_auth.txt
+          sf org login sfdx-url \
+            --sfdx-url-file dev_auth.txt \
+            --alias DevSandbox
+          rm dev_auth.txt
+
+      - name: Validate against Dev Sandbox
+        run: |
+          sf project deploy start \
+            --source-dir force-app \
+            --target-org DevSandbox \
+            --dry-run \
+            --test-level RunLocalTests \
+            --wait 30
+
+      - name: Deploy to Dev Sandbox
+        run: |
+          sf project deploy start \
+            --source-dir force-app \
+            --target-org DevSandbox \
+            --test-level RunLocalTests \
+            --wait 30
